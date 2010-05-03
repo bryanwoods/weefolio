@@ -55,6 +55,7 @@ describe UsersController do
     it "should only update my personal settings if I don't change my plan level" do
       put :update, :plan => {:level => "1"}, :user => {:tagline => Faker::Lorem.sentence }
       response.should redirect_to(edit_user_path(assigns['user']))
+      assigns['user'].plan.level.should == 1
       flash[:notice].should == "Account settings saved."
     end
     
@@ -100,6 +101,7 @@ describe UsersController do
       end
       put :update, :plan => { :level => 1 }
       flash[:notice].should include("Wait a minute!")
+      assigns['user'].plan.level.should == 2
       response.should redirect_to(edit_user_path(assigns['user']))
     end
     
@@ -131,6 +133,8 @@ describe UsersController do
                               :billing_city => Faker::Address.city,
                               :billing_state => Faker::Address.us_state,
                               :billing_postal_code => Faker::Address.zip_code }
+      # This line below is failing because we're saving without validating or something...
+      assigns['user'].plan.level.should == 3
       flash[:notice].should == "Something's gone wrong! Try again, please."
     end
   end
@@ -138,9 +142,30 @@ describe UsersController do
   describe "POST create" do
     it "should let me create a new user" do
       User.delete_all
-      post :create, :user => {:login => Faker::Internet.user_name, :email => Faker::Internet::email, :password => "giraffe", :password_confirmation => "giraffe" }
+      post :create, :user => {:login => "mike_maloney", :email => Faker::Internet.email, :password => "giraffe", :password_confirmation => "giraffe" }
       response.should redirect_to(root_path)
       flash[:notice].should == "Welcome to Weefolio, #{assigns['user'].login}!"
+    end
+    
+    it "should let me create a new user with upper and lowercase letters" do
+       User.delete_all
+       post :create, :user => {:login => "mikeMaloney", :email => Faker::Internet.email, :password => "giraffe", :password_confirmation => "giraffe" }
+       response.should redirect_to(root_path)
+       flash[:notice].should == "Welcome to Weefolio, #{assigns['user'].login}!"
+    end
+    
+    it "should not let me create a user if I put a shitty symbol in the login" do
+       User.delete_all
+       post :create, :user => {:login => "mike.maloney", :email => Faker::Internet.user_name, :password => "giraffe", :password_confirmation => "giraffe" }
+       response.should render_template('new')
+       User.count.should == 0
+    end
+    
+    it "should not let me create a user if I put a shitty symbol in the login" do
+       User.delete_all
+       post :create, :user => {:login => "mike@maloney", :email => Faker::Internet.user_name, :password => "giraffe", :password_confirmation => "giraffe" }
+       response.should render_template('new')
+       User.count.should == 0
     end
     
     it "should not let me create a user if I give bogus info" do

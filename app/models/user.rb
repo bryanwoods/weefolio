@@ -5,9 +5,6 @@ class User < ActiveRecord::Base
   include Authentication::ByPassword
   include Authentication::ByCookieToken
   
-  cattr_reader :per_page
-  @@per_page = 25
-  
   has_one                   :portfolio, :dependent => :destroy
   has_one                   :design, :dependent => :destroy
   has_one                   :plan, :dependent => :destroy
@@ -26,7 +23,7 @@ class User < ActiveRecord::Base
   validates_format_of       :email,    :with => Authentication.email_regex, :message => Authentication.bad_email_message
 
   # Should really get rid of the account_tier from attr_accessible...
-  attr_accessible :login, :email, :name, :password, :password_confirmation, :first_name, :last_name, :about_me, :tag_line, :design_type, :layout_type, :account_tier, :photo
+  attr_accessible :login, :email, :name, :password, :password_confirmation, :first_name, :last_name, :about_me, :tag_line, :design_type, :layout_type, :photo
   
   # Paperclip settings
   has_attached_file :photo, :styles => { :thumbnail => "70x70#", :large_thumb => "116x116#" }, 
@@ -75,9 +72,9 @@ class User < ActiveRecord::Base
   # Simple search for the directory page
   def self.search(search, page)
     if search
-      paginate :page => page, :order => "created_at DESC", :conditions => ['login LIKE ?', "%#{search}%"]
+      paginate :page => page, :per_page => 25, :order => "created_at DESC", :conditions => ['login LIKE ?', "%#{search}%"]
     else
-      paginate :page => page, :order => "created_at DESC"
+      paginate :page => page, :per_page => 25, :order => "created_at DESC", :conditions => ['photo_file_size > ?', 0]
     end
   end
   
@@ -91,12 +88,6 @@ class User < ActiveRecord::Base
     card_types = ["Visa", "Mastercard", "Discover", "American Express"]
   end
   
-  # Upgrade account 
-  def change_tier(tier)
-    self.account_tier -= self.account_tier
-    self.account_tier += tier
-  end
-  
   # Shows the text equivalent of the account tier for display to the user.
   def render_account_tier
     if self.plan.level == 1
@@ -106,12 +97,6 @@ class User < ActiveRecord::Base
     elsif self.plan.level == 3
       "Pro ($4.99/Month)"
     end
-  end
-  
-  # Account tier has to update with plan level, you know- to keep things really complicated...
-  def update_account_tier(plan_level)
-    self.account_tier = plan_level
-    self.save
   end
   
   # Change design type.
